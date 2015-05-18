@@ -54,10 +54,12 @@
     (let [response @(http/post url {:body json-body})]
       (= 200 (:status response)))
     (catch Exception ex
-      (log/warn "Got exception:" ex))))
+      (log/warn "Got exception:" ex)
+      false)))
 
 (defn send-to-influxdb [num-points queue-ch ^String url]
-  (let [metric-points (async/<!! (async/into [] (async/take num-points queue-ch)))
+  (let [metric-points (async/<!!
+                       (async/into [] (async/take num-points queue-ch)))
         influxdb-data-points (aggregate-metrics
                               (map make-influxdb-metric metric-points))
         json-body (write-str influxdb-data-points)]
@@ -67,7 +69,7 @@
         (log/info "Added" num-points "metrics to Influxdb.")
         (do
           (log/warn "Failed to add metrics to Influxdb, re-trying in 1s")
-          (async/alts!! [(async/chan) (async/timeout 1000)])
+          (Thread/sleep 1000)
           (recur (inc attempt-num)))))))
 
 (defn make-consumer [^String url limit]
@@ -76,12 +78,13 @@
   (let [buf (async/buffer limit)
         queue (async/chan buf)
         batch-interval 2000]
-    (async/go-loop [wait-millisecs batch-interval]
-                   (async/alts! [(async/chan) (async/timeout wait-millisecs)])
-                   (let [num-points (count buf)]
-                     (if (= num-points 0)
-                       (log/info "Queue empty, nothing to send to Influxdb")
-                       (send-to-influxdb num-points queue url)))
-                   (recur batch-interval))
+    (future
+      (loop [wait-millisecs batch-interval]
+        (Thread/sleep wait-millisecs)
+        (let [num-points (count buf)]
+          (if (= num-points 0)
+            (log/info "Queue empty, nothing to send to Influxdb")
+            (send-to-influxdb num-points queue url)))
+        (recur batch-interval)))
     queue))
 

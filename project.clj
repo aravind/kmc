@@ -1,6 +1,6 @@
 (defproject kmc "0.1.0"
-  :description "Pulls OpenTSDB metrics from Kafka and push them to multiple consumers"
-  :url "http://kafka.apache.org"
+  :description "Pushes OpenTSDB metrics from stdin to multiple consumers"
+  :url "http://opentsdb.net"
   :license {:name "Apache License, Version 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
   :main kmc.core
