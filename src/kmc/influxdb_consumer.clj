@@ -2,9 +2,8 @@
 
 (require '[clojure.core.async :as async])
 (require '[clojure.tools.logging :as log])
-(require 'clojure.data.json)
+(require '[clojure.data.json :refer [write-str]])
 (require '[org.httpkit.client :as http])
-(require '[overtone.at-at :refer [every mk-pool]])
 
 (defn number->string [^String s]
   (try
@@ -57,29 +56,32 @@
     (catch Exception ex
       (log/warn "Got exception:" ex))))
 
-(defn send-to-influxdb [queue-ch buf ^String url]
-  (let [num-points (count buf)]
-    (if (= num-points 0)
-      (log/info "Queue empty, nothing to send to Influxdb")
-      (let [metric-points (async/<!! (async/into [] (async/take num-points queue-ch)))
-            influxdb-data-points (aggregate-metrics
-                                  (map make-influxdb-metric metric-points))
-            json-body (clojure.data.json/write-str influxdb-data-points)]
-        (loop [attempt-num 1]
-          (log/info "Attempt:" attempt-num "sending" num-points "metrics to Influxdb.")
-          (if (post-datapoints-to-influxdb url json-body)
-            (log/info "Added" num-points "metrics to Influxdb.")
-            (do
-              (log/warn "Failed to add metrics to Influxdb, re-trying in 1s")
-              (Thread/sleep 1000)
-              (recur (inc attempt-num)))))))))
+(defn send-to-influxdb [num-points queue-ch ^String url]
+  (let [metric-points (async/<!! (async/into [] (async/take num-points queue-ch)))
+        influxdb-data-points (aggregate-metrics
+                              (map make-influxdb-metric metric-points))
+        json-body (write-str influxdb-data-points)]
+    (loop [attempt-num 1]
+      (log/info "Attempt:" attempt-num "sending" num-points "metrics to Influxdb.")
+      (if (post-datapoints-to-influxdb url json-body)
+        (log/info "Added" num-points "metrics to Influxdb.")
+        (do
+          (log/warn "Failed to add metrics to Influxdb, re-trying in 1s")
+          (async/alts!! [(async/chan) (async/timeout 1000)])
+          (recur (inc attempt-num)))))))
 
 (defn make-consumer [^String url limit]
   "This consumer lets metrics queue up for 2s, and then sends them to
    influxdb as a batch (makes it more efficient for influxdb)."
   (let [buf (async/buffer limit)
         queue (async/chan buf)
-        thread-pool (mk-pool :cpu-count 1)]
-    (every 2000 #(send-to-influxdb queue buf url) thread-pool)
+        batch-interval 2000]
+    (async/go-loop [wait-millisecs batch-interval]
+                   (async/alts! [(async/chan) (async/timeout wait-millisecs)])
+                   (let [num-points (count buf)]
+                     (if (= num-points 0)
+                       (log/info "Queue empty, nothing to send to Influxdb")
+                       (send-to-influxdb num-points queue url)))
+                   (recur batch-interval))
     queue))
 

@@ -1,4 +1,5 @@
 (ns kmc.core
+  "Kafka Metrics (OpenTSDB) Consumer"
   (:gen-class))
 
 (require '[clojure.core.async :refer [>!! close!]])

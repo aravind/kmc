@@ -1,4 +1,4 @@
-(defproject kmc "0.0.1"
+(defproject kmc "0.1.0"
   :description "Pulls OpenTSDB metrics from Kafka and push them to multiple consumers"
   :url "http://kafka.apache.org"
   :license {:name "Apache License, Version 2.0"
@@ -8,10 +8,8 @@
   :jvm-opts ["-verbosegc" "-Xmx256M" "-Xms256M"]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.cli "0.3.1"]
-                 [org.clojure/tools.logging "0.2.6"]
+                 [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [org.clojure/data.json "0.2.6"]
-                 [clj-kafka "0.2.8-0.8.1.1"]
                  [ch.qos.logback/logback-classic "1.0.9"]
-                 [http-kit "2.1.18"]
-                 [overtone/at-at "1.2.0"]])
+                 [http-kit "2.1.18"]])
