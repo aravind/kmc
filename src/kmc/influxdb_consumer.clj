@@ -72,19 +72,21 @@
           (Thread/sleep 1000)
           (recur (inc attempt-num)))))))
 
-(defn make-consumer [^String url limit]
+(defn launch-consumer-loop [buf queue ^String url]
   "This consumer lets metrics queue up for 2s, and then sends them to
    influxdb as a batch (makes it more efficient for influxdb)."
-  (let [buf (async/buffer limit)
-        queue (async/chan buf)
-        batch-interval 2000]
+  (let [batch-interval 2000]
     (future
       (loop [wait-millisecs batch-interval]
         (Thread/sleep wait-millisecs)
         (let [num-points (count buf)]
           (if (= num-points 0)
-            (log/info "Queue empty, nothing to send to Influxdb")
+            (log/info "Consumer queue empty, nothing to send to Influxdb")
             (send-to-influxdb num-points queue url)))
-        (recur batch-interval)))
-    queue))
+        (when (or (not (.closed? queue)) (> (count buf) 0))
+          (recur batch-interval))))))
+
+(defn make-consumer [^String url buf]
+  (let [queue (async/chan buf)]
+    [(launch-consumer-loop buf queue url) queue]))
 

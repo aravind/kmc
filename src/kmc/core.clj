@@ -2,20 +2,21 @@
   "OpenTSDB Metrics Consumer"
   (:gen-class))
 
-(require '[clojure.core.async :refer [>!! close!]])
+(require '[clojure.core.async :refer [>!! close! buffer]])
+(require '[clojure.tools.logging :as log])
 (require 'kmc.influxdb_consumer)
 (require '[clojure.tools.cli :refer [parse-opts]])
 
 (defn setup-consumer [options]
   (let [consumer-type (:target options)
         params (:url options)
-        limit (:limit options)
+        buf (buffer (:limit options))
         consumer-fn (resolve
                      (symbol
                       (str "kmc." (name consumer-type) "_consumer"
                            "/make-consumer")))]
 
-    (consumer-fn params limit)))
+    (consumer-fn params buf)))
 
 (def cli-options
   [["-t" "--target destination" "Where to send metrics to (opentsdb or influxdb)"
@@ -36,10 +37,14 @@
   (let [parsed-args (parse-opts args cli-options)
         options (:options parsed-args)]
     (when (or (:help options) (:errors parsed-args))
-      (println (:summary (parse-opts args cli-options)))
+      (println (:summary parsed-args))
       (System/exit 0))
-    (let [consumer-ch (setup-consumer options)
+    (let [[consumer-ref consumer-ch] (setup-consumer options)
           incoming (line-seq (java.io.BufferedReader. *in*))]
       (doseq [line incoming]
         (>!! consumer-ch line))
+      (close! consumer-ch)
+      (log/warn "Input stream closed, waiting for consumer thread to finish.")
+      @consumer-ref
+      (log/info "Consumer thread exited, shutting down.")
       (System/exit 0))))

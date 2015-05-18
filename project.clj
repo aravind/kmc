@@ -1,4 +1,4 @@
-(defproject kmc "0.1.0"
+(defproject kmc "0.1.1"
   :description "Pushes OpenTSDB metrics from stdin to multiple consumers"
   :url "http://opentsdb.net"
   :license {:name "Apache License, Version 2.0"
