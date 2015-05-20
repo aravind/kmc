@@ -7,6 +7,17 @@
 (require 'kmc.influxdb_consumer)
 (require '[clojure.tools.cli :refer [parse-opts]])
 
+(require '[clojure.core.async.impl.concurrent :as conc])
+(require '[clojure.core.async.impl.exec.threadpool :as tp])
+
+(defonce my-executor
+  (java.util.concurrent.Executors/newFixedThreadPool
+   1
+   (conc/counted-thread-factory "kmc-async-dispatch-%d" true)))
+
+(alter-var-root #'clojure.core.async.impl.dispatch/executor
+                (constantly (delay (tp/thread-pool-executor my-executor))))
+
 (defn setup-consumer [options]
   (let [consumer-type (:target options)
         params (:url options)
