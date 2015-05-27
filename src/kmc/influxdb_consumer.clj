@@ -5,7 +5,7 @@
 (require '[clojure.data.json :refer [write-str]])
 (require '[org.httpkit.client :as http])
 
-(defn number->string [^String s]
+(defn string->number [^String s]
   (try
     (let [n (read-string s)]
       (if (number? n) n s))
@@ -31,7 +31,7 @@
       (let [[metric-name ts value & t-v-strings] metric-string-parts
             [tags values] (extract-tags-and-values t-v-strings)]
         {metric-name {"columns" (into ["time" "value"] tags)
-                      "points" [(map number->string (into [ts value] values))]}})
+                      "points" [(map string->number (into [ts value] values))]}})
       (log/warn "Invalid metric:" tcollector-metric-line))))
 
 (defn merge-points [m1 m2]
@@ -51,7 +51,7 @@
 
 (defn post-datapoints-to-influxdb [^String url ^String json-body]
   (try
-    (let [response @(http/post url {:body json-body})]
+    (let [response @(http/post url {:body json-body, :keepalive -1})]
       (= 200 (:status response)))
     (catch Exception ex
       (log/warn "Got exception:" ex)
