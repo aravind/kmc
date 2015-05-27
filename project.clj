@@ -12,4 +12,4 @@
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [org.clojure/data.json "0.2.6"]
                  [ch.qos.logback/logback-classic "1.0.9"]
-                 [http-kit "2.1.18"]])
+                 [clj-http-lite "0.2.1"]])

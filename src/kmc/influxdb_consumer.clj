@@ -3,7 +3,7 @@
 (require '[clojure.core.async :as async])
 (require '[clojure.tools.logging :as log])
 (require '[clojure.data.json :refer [write-str]])
-(require '[org.httpkit.client :as http])
+(require '[clj-http.lite.client :as http])
 
 (defn string->number [^String s]
   (try
@@ -51,7 +51,7 @@
 
 (defn post-datapoints-to-influxdb [^String url ^String json-body]
   (try
-    (let [response @(http/post url {:body json-body, :keepalive -1})]
+    (let [response (http/post url {:body json-body})]
       (= 200 (:status response)))
     (catch Exception ex
       (log/warn "Got exception:" ex)
