@@ -22,6 +22,13 @@
   "Takes ['k1=v1' 'k2=v2' 'k3=v3'] and returns [['k1' 'k2' 'k3'] ['v1' 'v2' 'v3]]"
   (reduce combiner [[] []] (map string-to-tv-tupples (sort t-v-strings))))
 
+(defn valid-metric? [metric-data]
+  (let [columns (get metric-data "columns")
+        points (first (get metric-data "points"))]
+    (and (= (count (distinct columns)) (count points))
+         (number? (first points))
+         (number? (second points)))))
+
 (defn make-influxdb-metric [^String tcollector-metric-line]
   "converts 'proc.loadavg 1430641159 0.2 type=1m host=foo' into a
    hash that looks like {'proc.loadavg' {'columns' ('time' 'value'
@@ -29,9 +36,12 @@
   (let [metric-string-parts (clojure.string/split tcollector-metric-line #"\s+")]
     (if (>= (count metric-string-parts) 3)
       (let [[metric-name ts value & t-v-strings] metric-string-parts
-            [tags values] (extract-tags-and-values t-v-strings)]
-        {metric-name {"columns" (into ["time" "value"] tags)
-                      "points" [(map string->number (into [ts value] values))]}})
+            [tags values] (extract-tags-and-values t-v-strings)
+            metric-data {"columns" (into ["time" "value"] tags)
+                         "points" [(map string->number (into [ts value] values))]}]
+        (if (valid-metric? metric-data)
+          {metric-name metric-data}
+          (log/warn "Invalid metric:" tcollector-metric-line)))
       (log/warn "Invalid metric:" tcollector-metric-line))))
 
 (defn merge-points [m1 m2]
